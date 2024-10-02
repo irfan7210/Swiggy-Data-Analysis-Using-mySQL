@@ -1,7 +1,11 @@
 # Swiggy-Data-Analysis-Using-mySQL
+
+
 An in-depth data analysis using MySQL on a swiggy dataset.
 
 This project provides an in-depth analysis of a Swiggy dataset, examining various aspects of restaurant information through SQL. Utilizing MySQL Workbench, the analysis is conducted on a single table called "swiggy." The dataset features 11 columns that include details such as restaurant name, city, cuisine type (vegetarian or non-vegetarian), price, menu item, and category.
+
+Download Data Here : https://drive.google.com/drive/folders/1TmmGTBzGrWLqwEkwAPFw2tggteHo_0gF
 
 1. Find customers who have never ordered
 2. Average Price/dish
