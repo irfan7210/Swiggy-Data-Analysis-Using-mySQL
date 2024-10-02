@@ -1,0 +1,235 @@
+select * from delivery_partner;
+/*
+1. Find customers who have never ordered
+2. Average Price/dish
+3. Find the top restaurant in terms of the number of orders for a given month
+4. restaurants with monthly sales greater than x for 
+5. Show all orders with order details for a particular customer in a particular date range
+6. Find restaurants with max repeated customers 
+7. Month over month revenue growth of swiggy
+8. Customer - favorite food
+9. Find the most loyal customers for all restaurent
+10. Month over month revenue growth of each restaurent.
+*/
+
+select * from order_details;
+select * from orders;
+select * from users;
+
+-- 1. Find customers who have never ordered
+
+with act_cust as 
+(
+select od.user_id, u.name from orders as od
+join users as u on od.user_id = u.user_id 
+)
+select name from users 
+where name not in (select name from act_cust);
+
+-- 2. Average Price/dish
+-- 2a. What is the average price of each food type?
+
+select avg(price) from menu;
+
+select * from food;
+select * from menu;
+
+select type, avg(price) from menu as m
+join food as f on m.f_id = f.f_id
+group by type;
+
+select distinct type, avg(price) over( partition by type ) from menu as m
+join food as f on m.f_id = f.f_id;
+
+-- 3. Find the top restaurant in terms of the number of orders for a given month
+select * from restaurants;
+select * from order_details;
+select * from orders;
+select * from users;
+
+select r.r_name, count(*) as order_count
+from restaurants r join orders o on r.r_id = o.r_id
+group by o.r_id, r.r_name
+order by order_count desc
+limit 1;
+
+
+SELECT r.r_name, MONTH(STR_TO_DATE(o.date, '%d-%m-%Y')) AS months, COUNT(*) AS order_count
+FROM restaurants r 
+JOIN orders o ON r.r_id = o.r_id
+where month(str_to_date(o.date, '%d-%m-%Y')) = 6
+GROUP BY o.r_id, r.r_name, MONTH(STR_TO_DATE(o.date, '%d-%m-%Y'))
+ORDER BY order_count;
+
+-- 4. restaurants with monthly sales greater than x for
+select r.r_name,Month(str_to_date(o.date, '%d-%m-%Y')) as Months, sum(o.amount) as "revenue" 
+from restaurants r join orders o on r.r_id = o.r_id
+group by r.r_id, r.r_name,  Months
+having sum(o.amount) > 500
+order by Months;
+
+-- 5. Show all orders with order details for a particular customer in a particular date range
+
+-- Identify the user's user_id based on their name
+SELECT * FROM users WHERE name = 'Nitish';
+
+SELECT *
+FROM users u
+JOIN orders o ON u.user_id = o.user_id
+JOIN order_details od ON o.order_id = od.order_id
+WHERE u.name = 'Nitish'
+AND STR_TO_DATE(o.date, '%d-%m-%Y') BETWEEN '2022-05-15' AND '2022-06-15';
+
+-- 6. Find restaurants with max repeated customers
+select * from restaurants;
+select * from orders;
+-- method 1
+select r.r_name, count(*) as "loyal" from (select o.r_id, o.user_id, count(*) as "visits"
+from orders o
+group by o.r_id, o.user_id
+having visits > 1) c
+join restaurants r on r.r_id = c.r_id
+group by r.r_name
+order by loyal desc 
+limit 1;
+
+-- method 2
+WITH repeated_cust AS (
+    SELECT r.r_name, o.user_id, COUNT(*) AS order_count 
+    FROM restaurants r
+    INNER JOIN orders o ON r.r_id = o.r_id
+    GROUP BY r.r_name, o.user_id
+    HAVING COUNT(*) > 1
+), loyal_cust AS (
+    SELECT r_name, COUNT(user_id) AS Repeated_customers 
+    FROM repeated_cust
+    GROUP BY r_name
+    ORDER BY COUNT(user_id) DESC
+)
+SELECT * 
+
+
+
+FROM loyal_cust
+LIMIT 1;
+
+-- 7. Month over month revenue growth of swiggy
+
+select * from restaurants;
+select * from orders;
+
+
+SELECT 
+    MONTH(STR_TO_DATE(date, '%d-%m-%Y')) AS months,
+    SUM(amount) AS total_revenue,
+    SUM(amount) -lag(SUM(amount)) OVER (ORDER BY MONTH(STR_TO_DATE(date, '%d-%m-%Y'))) AS revenue_Growth
+FROM 
+    orders
+GROUP BY 
+    months
+ORDER BY 
+    months ASC;
+    
+    -- month by month total sale
+    
+SELECT 
+    MONTH(STR_TO_DATE(date, '%d-%m-%Y')) AS months,
+    SUM(amount) AS total_revenue,
+    SUM(amount) + COALESCE(LAG(SUM(amount)) OVER (ORDER BY MONTH(STR_TO_DATE(date, '%d-%m-%Y'))), 0) AS revenue_Growth
+FROM 
+    orders
+GROUP BY 
+    months
+ORDER BY 
+    months ASC;
+    
+-- 8. Customer - favorite food
+
+select * from orders;
+
+select f.f_name, count(*) as frequency from order_details o
+join food f on o.f_id = f.f_id
+group by f_name
+order by frequency desc
+limit 4;
+
+
+-- 9. Find the most loyal customers for all restaurent
+select u.name, o.user_id, count(*) as frequency
+from orders o
+join users u on o.user_id = u.user_id
+group by u.name, o.user_id;
+
+-- based on restaurent 
+select * from restaurants;
+select * from orders;
+
+with CTE as (select r.r_name,o.user_id, count(*) as frequency from orders o
+join restaurants r on o.r_id = r.r_id
+group by r_name, user_id
+), loyal as (select r_name, name, frequency
+			from CTE c join users u on c.user_id = u.user_id
+            where frequency > 1
+            order by frequency desc
+            )
+
+
+select * from loyal;
+select * from users;
+-------
+WITH temp AS (
+    SELECT r_id, user_id, COUNT(*) AS visits
+    FROM orders
+    GROUP BY r_id, user_id
+    ORDER BY r_id, user_id
+)
+
+SELECT r.r_name, u.name AS 'loyal customer', t1.visits
+FROM temp t1
+JOIN restaurants r ON r.r_id = t1.r_id
+JOIN users u ON u.user_id = t1.user_id
+WHERE t1.visits = (
+    SELECT MAX(t2.visits)
+    FROM temp t2
+    WHERE t1.r_id = t2.r_id
+);
+
+
+-- 10. Month over month revenue growth of each restaurent.
+
+select * from order_details;
+SELECT * FROM orders;
+
+
+WITH revenue_table AS (
+    SELECT 
+        r_id, 
+        DATE_FORMAT(STR_TO_DATE(date, '%d-%m-%y'), '%Y-%m') AS Months, 
+        SUM(amount) AS revenue
+    FROM 
+        orders
+    GROUP BY 
+        r_id, Months
+    ORDER BY 
+        r_id, Months
+)
+
+SELECT 
+    r_id, 
+    Months,
+    revenue, 
+    revenue - LAG(revenue) OVER (PARTITION BY r_id ORDER BY Months) AS revenue_change,
+    (revenue - LAG(revenue) OVER (PARTITION BY r_id ORDER BY Months)) / LAG(revenue)  OVER (PARTITION BY r_id ORDER BY Months) * 100 AS revenue_month_growth
+FROM 
+    revenue_table
+ORDER BY 
+    r_id, Months;
+
+
+
+
+
+
+
+
+
